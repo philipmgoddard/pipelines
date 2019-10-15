@@ -105,13 +105,13 @@ def train_plot(df,
         hp3 = df.columns.values[2]
         metric = df.columns.values[3]
         std = df.columns.values[4]
-
+        
         # initialise grid
         n_hp1 = df[hp1].drop_duplicates().shape[0]
         n_row = math.ceil(n_hp1/ 3)
         n_col = 3
-
-        f, axarr = plt.subplots(n_row, 3, figsize = f_size, dpi=80)
+        
+        f, axarr = plt.subplots(n_row, n_hp1, figsize = f_size, dpi=80) # WAS A BUG HERE
 
         ymin = min(df[metric].values) * 0.99
         ymax = max(df[metric].values) * 1.01
@@ -173,10 +173,10 @@ def train_plot(df,
                     axarr[j].set_xlabel(hp3)
 
                     if logx:
-                        axarr[i][j].set_xscale('log')
+                        axarr[j].set_xscale('log') # was a bug here
 
-                    if j == 2:
-                        axarr[j].legend(loc = 'best', title = hp2)
+                    if j == n_hp1 -1:
+                        axarr[j].legend(loc = 'best', title = hp2) # was a bug here
 
                     if j > 0:
                         axarr[j].set_ylabel('')
@@ -348,12 +348,175 @@ class ROCPlot(object):
         return ax
 
 
+# def hist_plot(df, n_col = 3, outcome_col = None,
+#               n_bins = 20, plot_legend = False,
+#               norm = True, f_size = (15,15)):
+#     '''
+#     Function to generate histogram plots, optionally grouping by outcome_col
+
+#     Inputs:
+#     df: pandas dataframe of features to plot
+#     n_col: number of columns
+#     outcome_col: string specifying the outcome column. If None, will not group
+#     n_bins: number of bins
+#     plot_legend: Boolean. should a legend be included in the plot?
+#     f_size: tuple of (x size, y size) to specify size of plot
+#     '''
+
+#     if outcome_col is None:
+#         n_features = df.shape[1]
+#         feature_names = df.columns.values
+#         df_features = df
+#     else:
+#         n_features = df.shape[1] -1
+#         feature_names = [x for x in df.columns.values if x != outcome_col]
+#         df_features = df.loc[:, feature_names]
+#         outcome_values = sorted([x for x in df.loc[:, outcome_col].unique()])
+
+#     if n_features % n_col == 0:
+#         n_row = n_features // n_col
+#     else:
+#         n_row = n_features // n_col + 1
+
+#     f, axarr = plt.subplots(n_row, n_col, figsize = f_size, dpi=80)
+
+#     v = 0
+#     for i in np.arange(n_row):
+#         for j in np.arange(n_col):
+
+#         # turn off axis if empty grids
+#             if v >= n_features:
+#                 if n_row == 1:
+#                     axarr[j].axis('off')
+#                     continue
+#                 elif n_col == 1:
+#                     axarr[i].axis('off')
+#                     continue
+#                 else:
+#                     axarr[i][j].axis('off')
+#                     continue
+
+#             xmin = df_features.loc[:, feature_names[v]].min()
+#             xmax = df_features.loc[:, feature_names[v]].max()
+
+#             if (n_row == 1) and (n_col == 1):
+#                 axarr.spines['right'].set_visible(False)
+#                 axarr.spines['top'].set_visible(False)
+#                 axarr.tick_params(axis=u'both', which=u'both',length=5)
+#             elif n_row == 1:
+#                 axarr[j].spines['right'].set_visible(False)
+#                 axarr[j].spines['top'].set_visible(False)
+#                 axarr[j].tick_params(axis=u'both', which=u'both',length=5)
+#             elif n_col == 1:
+#                 axarr[i].spines['right'].set_visible(False)
+#                 axarr[i].spines['top'].set_visible(False)
+#                 axarr[i].tick_params(axis=u'both', which=u'both',length=5)
+#             else:
+#                 axarr[i][j].spines['right'].set_visible(False)
+#                 axarr[i][j].spines['top'].set_visible(False)
+#                 axarr[i][j].tick_params(axis=u'both', which=u'both',length=5)
+
+#             if outcome_col is not None:
+#                 for c in outcome_values:
+#                     lab = None if plot_legend is False else c
+#                     plt_data = df_features.loc[df[outcome_col] == c,
+#                                       feature_names[v]]
+
+
+#                     if (n_row == 1) and (n_col ==1):
+#                         axarr.hist(plt_data,
+#                                    bins=n_bins,
+#                                    label = lab,
+#                                    normed = norm,
+#                                    alpha = 0.6)
+#                         axarr.set_title(feature_names[v])
+#                         if plot_legend:
+#                             if (j == 0) & (i == 0):
+#                                 axarr.legend()
+#                     elif n_row == 1:
+#                         axarr[j].hist(plt_data,
+#                                       bins=n_bins,
+#                                       label = lab,
+#                                       normed = norm,
+#                                       alpha = 0.6)
+#                         axarr[j].set_title(feature_names[v])
+#                         if plot_legend:
+#                             if (j == 0) & (i == 0):
+#                                 axarr[j].legend()
+#                     elif n_col == 1:
+#                         axarr[i].hist(plt_data, range = bin_range, label = lab,
+#                                       normed = norm, alpha = 0.6)
+#                         axarr[i].set_title(feature_names[v])
+#                         if plot_legend:
+#                             if (j == 0) & (i == 0):
+#                                 axarr[j].legend()
+#                     else:
+#                         axarr[i][j].hist(plt_data,
+#                                          bins=n_bins,
+#                                          label = lab,
+#                                          normed = norm,
+#                                          alpha = 0.6)
+#                         axarr[i][j].set_title(feature_names[v])
+#                         if plot_legend:
+#                             if (j == 0) & (i == 0):
+#                                 axarr[i,j].legend()
+#                 v += 1
+#             else:
+#                 plt_data = df_features.loc[:, feature_names[v]].values
+#                 if (n_row == 1) and (n_col == 1):
+#                     axarr.hist(plt_data,
+#                                 bins=n_bins,
+#                                 label = lab,
+#                                 normed = norm,
+#                                 alpha = 0.6)
+#                     axarr.set_title(feature_names[v])
+#                     if plot_legend:
+#                         if (j == 0) & (i == 0):
+#                             axarr.legend()
+#                 elif n_row == 1:
+#                     axarr[j].hist(plt_data,
+#                                   bins=n_bins,
+#                                   label = lab,
+#                                   normed = norm,
+#                                   alpha = 0.6)
+#                     axarr[j].set_title(feature_names[v])
+#                     if plot_legend:
+#                         if (j == 0) & (i == 0):
+#                             axarr[j].legend()
+#                 elif n_col == 1:
+#                     axarr[i].hist(plt_data,
+#                                   bins=n_bins,
+#                                   label = lab,
+#                                   normed = norm,
+#                                   alpha = 0.6)
+#                     axarr[i].set_title(feature_names[v])
+#                     if plot_legend:
+#                         if (j == 0) & (i == 0):
+#                             axarr[j].legend()
+#                 else:
+#                     axarr[i][j].hist(plt_data,
+#                                      bins=n_bins,#np.arange(bin_range[0], bin_range[1] + bin_width, bin_width),
+#                                      label = lab,
+#                                      normed = norm,
+#                                      alpha = 0.6)
+#                     axarr[i][j].set_title(feature_names[v])
+#                     if plot_legend:
+#                         if (j == 0) & (i == 0):
+#                             axarr[i][j].legend()
+#                 v += 1
+
+
+#     if n_col == 1:
+#         f.subplots_adjust(hspace = 1)
+#     else:
+#         f.subplots_adjust(hspace = 0.5)
+#     #return f
+
 def hist_plot(df, n_col = 3, outcome_col = None,
               n_bins = 20, plot_legend = False,
               norm = True, f_size = (15,15)):
     '''
     Function to generate histogram plots, optionally grouping by outcome_col
-
     Inputs:
     df: pandas dataframe of features to plot
     n_col: number of columns
@@ -361,6 +524,10 @@ def hist_plot(df, n_col = 3, outcome_col = None,
     n_bins: number of bins
     plot_legend: Boolean. should a legend be included in the plot?
     f_size: tuple of (x size, y size) to specify size of plot
+    
+    TODO: consistent bin sizes. define bin_range lower, upper and a bin width
+          CURRENTLY BINS AREW FIXED BY FIRST OUTCOME HAVING 20 BINS
+    TODO: if yaxis very small, switch to scientific notation OR increase y axis spacing
     '''
 
     if outcome_col is None:
@@ -383,6 +550,10 @@ def hist_plot(df, n_col = 3, outcome_col = None,
     v = 0
     for i in np.arange(n_row):
         for j in np.arange(n_col):
+            
+            # bins will be calculated by first outcome
+            # if multiple outcomes (so they allign)
+            curr_bins = None
 
         # turn off axis if empty grids
             if v >= n_features:
@@ -415,47 +586,56 @@ def hist_plot(df, n_col = 3, outcome_col = None,
                 axarr[i][j].spines['right'].set_visible(False)
                 axarr[i][j].spines['top'].set_visible(False)
                 axarr[i][j].tick_params(axis=u'both', which=u'both',length=5)
-
+                
             if outcome_col is not None:
                 for c in outcome_values:
+                    
+                    if curr_bins is not None:
+                        hist_bins = curr_bins
+                    else:
+                        hist_bins = n_bins
+                                                
                     lab = None if plot_legend is False else c
                     plt_data = df_features.loc[df[outcome_col] == c,
                                       feature_names[v]]
 
 
                     if (n_row == 1) and (n_col ==1):
-                        axarr.hist(plt_data,
-                                   bins=n_bins,
-                                   label = lab,
-                                   normed = norm,
-                                   alpha = 0.6)
+                        (n, curr_bins, patches) = axarr.hist(plt_data,
+                                                             bins=hist_bins,
+                                                             label = str(lab),
+                                                             normed = norm,
+                                                             alpha = 0.6)
                         axarr.set_title(feature_names[v])
                         if plot_legend:
                             if (j == 0) & (i == 0):
                                 axarr.legend()
                     elif n_row == 1:
-                        axarr[j].hist(plt_data,
-                                      bins=n_bins,
-                                      label = lab,
-                                      normed = norm,
-                                      alpha = 0.6)
+                        (n, curr_bins, patches) = axarr[j].hist(plt_data,
+                                                                bins=hist_bins,
+                                                                label = str(lab),
+                                                                normed = norm,
+                                                                alpha = 0.6)
                         axarr[j].set_title(feature_names[v])
                         if plot_legend:
                             if (j == 0) & (i == 0):
                                 axarr[j].legend()
                     elif n_col == 1:
-                        axarr[i].hist(plt_data, range = bin_range, label = lab,
-                                      normed = norm, alpha = 0.6)
+                        (n, curr_bins, patches) = axarr[i].hist(plt_data, 
+                                                                bins = hist_bins, 
+                                                                label = lab,
+                                                                normed = norm, 
+                                                                alpha = 0.6)
                         axarr[i].set_title(feature_names[v])
                         if plot_legend:
                             if (j == 0) & (i == 0):
                                 axarr[j].legend()
                     else:
-                        axarr[i][j].hist(plt_data,
-                                         bins=n_bins,
-                                         label = lab,
-                                         normed = norm,
-                                         alpha = 0.6)
+                        (n, curr_bins, patches) = axarr[i][j].hist(plt_data,
+                                                                   bins=hist_bins,
+                                                                   label = str(lab),
+                                                                   normed = norm,
+                                                                   alpha = 0.6)
                         axarr[i][j].set_title(feature_names[v])
                         if plot_legend:
                             if (j == 0) & (i == 0):
@@ -464,41 +644,41 @@ def hist_plot(df, n_col = 3, outcome_col = None,
             else:
                 plt_data = df_features.loc[:, feature_names[v]].values
                 if (n_row == 1) and (n_col == 1):
-                    axarr.hist(plt_data,
-                                bins=n_bins,
-                                label = lab,
-                                normed = norm,
-                                alpha = 0.6)
+                    (n, curr_bins, patches) = axarr.hist(plt_data,
+                                                         bins=hist_bins,
+                                                         label = str(lab),
+                                                         normed = norm,
+                                                         alpha = 0.6)
                     axarr.set_title(feature_names[v])
                     if plot_legend:
                         if (j == 0) & (i == 0):
                             axarr.legend()
                 elif n_row == 1:
-                    axarr[j].hist(plt_data,
-                                  bins=n_bins,
-                                  label = lab,
-                                  normed = norm,
-                                  alpha = 0.6)
+                    (n, curr_bins, patches) = axarr[j].hist(plt_data,
+                                                            bins=hist_bins,
+                                                            label = str(lab),
+                                                            normed = norm,
+                                                            alpha = 0.6)
                     axarr[j].set_title(feature_names[v])
                     if plot_legend:
                         if (j == 0) & (i == 0):
                             axarr[j].legend()
                 elif n_col == 1:
-                    axarr[i].hist(plt_data,
-                                  bins=n_bins,
-                                  label = lab,
-                                  normed = norm,
-                                  alpha = 0.6)
+                    (n, curr_bins, patches) = axarr[i].hist(plt_data,
+                                                            bins=hist_bins,
+                                                            label = str(lab),
+                                                            normed = norm,
+                                                            alpha = 0.6)
                     axarr[i].set_title(feature_names[v])
                     if plot_legend:
                         if (j == 0) & (i == 0):
                             axarr[j].legend()
                 else:
-                    axarr[i][j].hist(plt_data,
-                                     bins=n_bins,#np.arange(bin_range[0], bin_range[1] + bin_width, bin_width),
-                                     label = lab,
-                                     normed = norm,
-                                     alpha = 0.6)
+                    (n, curr_bins, patches) = axarr[i][j].hist(plt_data,
+                                                               bins=hist_bins,
+                                                               label = str(lab),
+                                                               normed = norm,
+                                                               alpha = 0.6)
                     axarr[i][j].set_title(feature_names[v])
                     if plot_legend:
                         if (j == 0) & (i == 0):
@@ -511,8 +691,9 @@ def hist_plot(df, n_col = 3, outcome_col = None,
     else:
         f.subplots_adjust(hspace = 0.5)
     #return f
-
-
+    
+    
+    
 def kde_plot(df, n_col = 3, outcome_col = None,
              plot_legend = False, cov_factor = 0.25,
              f_size = (15,15)):
