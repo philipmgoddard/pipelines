@@ -8,76 +8,73 @@ from sklearn.model_selection import GridSearchCV
 import inspect
 
 
-def sample(X, y, target_class, sample_prop, random_state):
+def sample(X, y, target_ratio=1.0, upsample=True, random_state=1234):
     """
     sample (up or down) from observations
     X: np array of features
     y: np array of outcomes (binary 0/1)
-    target_class: which class to sample
-    sample_prop: if > 1 will (up)sample with replacement (sample_prop-1)% of records of target class and append observations to target class
-                 if < 1 will (down)sample without replacement sample_prop% of target class
-                 if = 1 will return data
+    target_ratio: majority / minority proportion. If = 1, classes balanced, 0.5 = twice as many in majority class as minorty, etc.
+    upsample: True if upsample minority class, False if downsample majority
     random_state: seed for np.random.seed
     """
     np.random.seed(random_state)
-    # split data into positive and negative class
-    X_target = X[y==target_class]
-    X_non_target = X[y!=target_class]
-    non_target = int(not target_class)
-    n_target = X_target.shape[0]
-    n_non_target = X_non_target.shape[0]
+    n_positive_class = X[y==1].shape[0]
+    n_negative_class = X[y==0].shape[0]
+    n_obs = X.shape[0]
     
-    if sample_prop <= 0.0:
-        raise ValueError("nope")
+    majority_class = 1 if n_positive_class / n_negative_class >=1 else 0
+    minority_class = int(not majority_class)
+    X_majority = X[y==majority_class]
+    X_minority = X[y!=majority_class]
+    n_majority_class = max(n_positive_class, n_negative_class)
+    n_minority_class = min(n_positive_class, n_negative_class)
+    n_to_sample = int((n_majority_class - n_minority_class) * target_ratio)
     
-    # just return
-    if sample_prop == 1.0:
-        return X, y
-       
-    # upsample: sample with replacement (sample_prop-1)% of records of target class
-    # and append observations to target class
-    elif sample_prop > 1.0:
-        n_to_sample = int(n_target * (sample_prop-1))
+    if upsample is False and target_ratio > 1.0:
+        raise ValueError("this wont work")
+        
+    if upsample:
+        # up sample from minority with replacement 
         X_sampled = resample(
-            X_target,
+            X_minority,
             replace=True,
             n_samples=n_to_sample
         )
-        # combine upsampled positive samples with all negative samples
-        X_up = np.concatenate((X_target, X_sampled, X_non_target), axis=0)
-        y_up = np.array([target_class] * (X_sampled.shape[0] + n_target) + [non_target] * n_non_target)
-        shuffle_index = resample(list(range(X_up.shape[0])), replace = False)
-        return X_up[shuffle_index], y_up[shuffle_index]
-    
-    # downsample: sample without replacement sample_prop% of target class
+        # combine upsampled minority class with all other samples
+        X_new = np.concatenate((X_sampled, X_minority, X_majority), axis=0)
+        print(n_minority_class + n_to_sample, n_majority_class)
+        y_new = np.array([minority_class] * (n_minority_class + n_to_sample) + [majority_class] * n_majority_class)
+        shuffle_index = resample(list(range(X_new.shape[0])), replace = False)
+        return X_new[shuffle_index], y_new[shuffle_index]
     else:
-        n_to_sample = int(n_target * sample_prop)
+        # down sample majority class by sampling without replacement
         X_sampled = resample(
-            X_target,
+            X_majority,
             replace=False,
-            n_samples=n_to_sample
+            n_samples= n_to_sample
         )
-        X_down = np.concatenate((X_sampled, X_non_target), axis=0)
-        y_down = np.array([target_class] * (X_sampled.shape[0]) + [non_target] * n_non_target)
-        shuffle_index = resample(list(range(X_down.shape[0])), replace = False)
-        return X_down[shuffle_index], y_down[shuffle_index]
+        X_new = np.concatenate((X_sampled, X_minority), axis=0)
+        y_new = np.array([majority_class] * (n_to_sample) + [minority_class] * n_minority_class)
+        shuffle_index = resample(list(range(X_new.shape[0])), replace = False)
+        return X_new[shuffle_index], y_new[shuffle_index]
+    
     
 class SampleMixin(object):
     def fit(self, X, y, sample_weight = None):
-        sample_prop = self.sample_prop
         sampling_random_state = self.sampling_random_state
-        target_class = self.target_class
-        X_sample, y_sample = sample(X, y, target_class, sample_prop, sampling_random_state)
+        target_ratio = self.target_ratio
+        upsample = self.upsample
+        X_sample, y_sample = sample(X, y, target_ratio, upsample, sampling_random_state)
         return super().fit(X_sample, y_sample, sample_weight)
 
 
 def sample_clf_factory(SklearnClassifier):
     class ClassifierWithSampling(SampleMixin, SklearnClassifier):
         """ We ignore sklearn convention and pass arguments to the superclass as kwargs :) """
-        def __init__(self, target_class = 1, sample_prop=0.5, sampling_random_state=1234,  **kwargs):
-            self.sample_prop = sample_prop
+        def __init__(self, target_ratio = 1.0, upsample=True, sampling_random_state=1234,  **kwargs):
             self.sampling_random_state = sampling_random_state
-            self.target_class = target_class
+            self.target_ratio = target_ratio
+            self.upsample = upsample
             super().__init__(**kwargs)
 
         """override in the class BaseEstimator to allow kwargs"""

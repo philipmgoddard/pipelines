@@ -199,6 +199,7 @@ def train_plot(df,
 
     elif n_hyperparams > 3:
         raise ValueError('Too many hyperparameters for a simple plot. Go manual!')
+    return f
 
 
 class LiftChart(object):
@@ -690,7 +691,7 @@ def hist_plot(df, n_col = 3, outcome_col = None,
         f.subplots_adjust(hspace = 1)
     else:
         f.subplots_adjust(hspace = 0.5)
-    #return f
+    return f
     
     
     
@@ -832,6 +833,7 @@ def kde_plot(df, n_col = 3, outcome_col = None,
         f.subplots_adjust(hspace = 1)
     else:
         f.subplots_adjust(hspace = 0.5)
+    return f
 
 
 def cat_plot(df, outcome_col = None,
@@ -961,7 +963,7 @@ def cat_plot(df, outcome_col = None,
         f.subplots_adjust(hspace = 1)
     else:
         f.subplots_adjust(hspace = 0.5)
-    #return f
+    return f
 
 
 def cs(var):
@@ -1045,7 +1047,7 @@ def pairwise_plot(df, outcome_col = None, center_scale = True,
     f.subplots_adjust(hspace = 0.5)
     f.suptitle('(centered and scaled) pairwise plot', fontsize = 24)
     f.subplots_adjust(top=0.95)
-    #return f
+    return f
 
 
 def plot_prec_recall(y_lab, y_pred_prob, cross=False, figsize=(8,5)):

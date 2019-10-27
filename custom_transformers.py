@@ -3,6 +3,7 @@ import pandas as pd
 import sklearn
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler, LabelEncoder, PolynomialFeatures
+from scipy import sparse
 
 class DataFrameSelector(BaseEstimator, TransformerMixin):
     '''
@@ -67,7 +68,7 @@ class ZeroVariance(BaseEstimator, TransformerMixin):
         self.freq_cut = freq_cut
         self.unique_cut = unique_cut
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None): 
         self.zero_var = np.zeros(X.shape[1], dtype=bool)
         self.near_zero_var = np.zeros(X.shape[1], dtype=bool)
         n_obs = X.shape[0]
@@ -119,7 +120,7 @@ class FindCorrelation(BaseEstimator, TransformerMixin):
     with exact = False
     '''
     def __init__(self, threshold=0.9):
-       self.threshold = threshold
+        self.threshold = threshold
 
     def fit(self, X, y=None):
         '''
@@ -134,7 +135,7 @@ class FindCorrelation(BaseEstimator, TransformerMixin):
 
         Remember, matrix is symmetric so shift down by one row per column as
         iterate through.
-        '''
+        ''' 
         self.correlated = np.zeros(X.shape[1], dtype=bool)
         self.corr_mat =  np.corrcoef(X.T)
         abs_corr_mat = np.abs(self.corr_mat)
@@ -168,11 +169,11 @@ class OptionalStandardScaler(BaseEstimator, TransformerMixin):
     to be toggled as optional transformation
     '''
     def __init__(self, scale=True, with_mean=True, with_std=True, copy=True):
-       self.scale = scale
-       self.with_mean = with_mean
-       self.with_std = with_std
-       self.copy = copy
-       self.scale_obj = StandardScaler(with_mean = self.with_mean,
+        self.scale = scale
+        self.with_mean = with_mean
+        self.with_std = with_std
+        self.copy = copy
+        self.scale_obj = StandardScaler(with_mean = self.with_mean,
                                        with_std = self.with_std,
                                        copy = self.copy)
 
@@ -193,7 +194,7 @@ class ManualDropper(BaseEstimator, TransformerMixin):
     the context of dropping fully correlated columns after
     creating dummy variables, etc
     '''
-    def __init__(self, drop_ix, optional_drop_ix=None):
+    def __init__(self, drop_ix=[], optional_drop_ix=None):
         self.drop_ix = drop_ix
         self.optional_drop_ix = optional_drop_ix
 
