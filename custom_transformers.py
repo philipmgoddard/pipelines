@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import StandardScaler, LabelEncoder, PolynomialFeatures
-from scipy import sparse
+from sklearn.preprocessing import StandardScaler, PowerTransformer, OneHotEncoder, LabelEncoder, PolynomialFeatures
+from sklearn.impute import SimpleImputer
+from sklearn.decomposition import PCA
 
 class DataFrameSelector(BaseEstimator, TransformerMixin):
     '''
@@ -18,38 +18,84 @@ class DataFrameSelector(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return X.loc[:, self.attribute_names].values
 
-
-class MultiColumnLabelEncoder(BaseEstimator, TransformerMixin):
+class NullsColRemoval(BaseEstimator, TransformerMixin):
     '''
-    Wrapper around sklearn.preprocess.LabelEncoder to perform encoding
-    on multiple columns.
-    WARNING: if you want to perform one-hot encoding, I really suggest
-    using pandas.DataFrame.get_dummies()
+    Transformer to remove columns with high percentage of null values
     '''
-    def __init__(self,columns = None):
-        self.columns = columns # array of column names to encode
 
-    def fit(self,X,y=None):
-        return self # not relevant here
+    def __init__(self, threshold=0.3):
+        self.threshold = threshold
+
+    def fit(self, X, y=None):
+        if X.dtype == 'object':
+            self.null_bool = np.sum(pd.isnull(X), axis=0) / X.shape[0] >= self.threshold
+        else:
+            self.null_bool = np.sum(np.isnan(X), axis=0) / X.shape[0] >= self.threshold
+        return self
+
+    def transform(self, X, y=None):
+        return X.T[~self.null_bool].T
+
+    def get_feature_names(self, input_features=None):
+        return input_features[~self.null_bool]
+
+    def get_feature_names_drop(self, input_features=None):
+        return input_features[self.null_bool]
+
+class CategoricalEncoder(BaseEstimator, TransformerMixin):
+    '''
+    Encode the categorical variables either as Label or Hot Encode.
+    '''
+
+    def __init__(self, OneHot=True, sparse=False, drop_ix = [], optional_drop_ix = None):
+        self.OneHot = OneHot
+        self.sparse = sparse
+        self.OneHot_obj = OneHotEncoder(sparse=self.sparse)
+        self.drop_ix = drop_ix
+        self.optional_drop_ix = optional_drop_ix
+
+    def fit(self, X, y=None):
+        if self.OneHot:
+            self.OneHot_obj.fit(X, y=None)
+        return self
 
     def transform(self,X):
         '''
-        Transforms columns of X specified in self.columns using
-        LabelEncoder(). If no columns specified, transforms all
-        columns in X.
+        Transforms  X using either ΟneHot or LabelEncoder().
         '''
-        output = X.copy()
-        if self.columns is not None:
-            for col in self.columns:
-                output[col] = LabelEncoder().fit_transform(output[col])
+        if self.OneHot:
+            #self.one_hot_features = self.OneHot_obj.get_feature_names(self.col_names)
+            return self.OneHot_obj.transform(X)
+
+            '''
+            Manually specify columns to drop: used for fully correlated columns after
+            creating dummy variables.
+               '''
+            self.n_cols = X.shape[1]
+            if self.n_cols != X.shape[1]:
+                raise ValueError('Array different n_cols to that fitted')
+
+            self.drop_array = np.zeros(X.shape[1], dtype='bool')
+
+            for i in self.drop_ix:
+                self.drop_array[i] = True
+
+            if self.optional_drop_ix:
+                for i in self.optional_drop_ix:
+                    self.drop_array[i] = True
+            return X
+
         else:
-            for colname,col in output.iteritems():
-                output[colname] = LabelEncoder().fit_transform(col)
-        return output
+            le = LabelEncoder()
+            output = np.apply_along_axis(le.fit_transform, 0, X)
+            return output
 
-    def fit_transform(self,X,y=None):
-        return self.fit(X,y).transform(X)
-
+    def get_feature_names(self, input_features=None):
+        if self.OneHot:
+            one_hot_features = self.OneHot_obj.get_feature_names(input_features)
+            return one_hot_features
+        else:
+            return input_features
 
 class ZeroVariance(BaseEstimator, TransformerMixin):
     '''
@@ -109,6 +155,28 @@ class ZeroVariance(BaseEstimator, TransformerMixin):
         else:
             return input_features[~self.zero_var]
 
+class OptionalSimpleImputer(BaseEstimator, TransformerMixin):
+    '''
+    Simple wrapper around sklearn.impute SimpleImputer to allow imputation of missing values.
+    '''
+    def __init__(self, SimpleImpute=True, missing_values=np.nan, strategy='median', copy=True):
+        self.SimpleImpute = SimpleImpute
+        self.missing_values = missing_values
+        self.strategy = strategy
+        self.copy = copy
+        self.simple_imputed_obj = SimpleImputer(missing_values = self.missing_values,
+                                                strategy = self.strategy,
+                                                copy = self.copy)
+
+    def fit(self, X, y=None):
+        self.simple_imputed_obj.fit(X, y=None)
+        return self
+
+    def transform(self, X, y=None):
+        if self.SimpleImpute:
+            return self.simple_imputed_obj.transform(X)
+        else:
+            return X
 
 class FindCorrelation(BaseEstimator, TransformerMixin):
     '''
@@ -135,7 +203,7 @@ class FindCorrelation(BaseEstimator, TransformerMixin):
 
         Remember, matrix is symmetric so shift down by one row per column as
         iterate through.
-        ''' 
+        '''
         self.correlated = np.zeros(X.shape[1], dtype=bool)
         self.corr_mat =  np.corrcoef(X.T)
         abs_corr_mat = np.abs(self.corr_mat)
@@ -162,7 +230,6 @@ class FindCorrelation(BaseEstimator, TransformerMixin):
     def get_feature_names(self, input_features=None):
         return input_features[~self.correlated]
 
-
 class OptionalStandardScaler(BaseEstimator, TransformerMixin):
     '''
     Simple wrapper around sklearn.Preprocessing to allow scaling
@@ -187,44 +254,47 @@ class OptionalStandardScaler(BaseEstimator, TransformerMixin):
         else:
             return X
 
-
-class ManualDropper(BaseEstimator, TransformerMixin):
+class OptionalPowerTransformer(BaseEstimator, TransformerMixin):
     '''
-    Manually specify columns to drop. Could be useful in
-    the context of dropping fully correlated columns after
-    creating dummy variables, etc
+    Simple wrapper around sklearn.Preprocessing PowerTransformer to allow power transform featurewise to
+    make data more Gaussian-like.
     '''
-    def __init__(self, drop_ix=[], optional_drop_ix=None):
-        self.drop_ix = drop_ix
-        self.optional_drop_ix = optional_drop_ix
+    def __init__(self, PowerTransform=True, method='yeo-johnson', standardize=True, copy=True):
+        self.PowerTransform = PowerTransform
+        self.method = method
+        self.standardize = standardize
+        self.copy = copy
+        self.power_transformed_obj = PowerTransformer(method=self.method, standardize=self.standardize, copy=self.copy)
 
     def fit(self, X, y=None):
-        # transformer is fully dependend on column indices provided.
-        # however we can add some checking here to ensure array being
-        # transformed is same number of columns as that which was
-        # fitted
-        # REMOVE THIS FROM HERE - is in pipeline checker
-
-        self.n_cols = X.shape[1]
+        self.power_transformed_obj.fit(X, y=None)
         return self
 
     def transform(self, X, y=None):
-        if self.n_cols != X.shape[1]:
-            raise ValueError('Array different n_cols to that fitted')
+        if self.PowerTransform:
+            return self.power_transformed_obj.transform(X)
+        else:
+            return X
+        
+class OptionalPCA(BaseEstimator, TransformerMixin):
+    '''
+    Simple wrapper around from sklearn.decomposition import PCA to construct uncorrelated features and do feature
+    selection
+    '''
+    def __init__(self, PCATransform=True, copy=True):
+        self.PCATransform = PCATransform
+        self.copy = copy
+        self.pca_transformed_obj = PCA(copy=self.copy)
 
-        self.drop_array = np.zeros(X.shape[1], dtype='bool')
+    def fit(self, X, y=None):
+        self.pca_transformed_obj.fit(X, y=None)
+        return self
 
-        for i in self.drop_ix:
-            self.drop_array[i] = True
-
-        if self.optional_drop_ix:
-            for i in self.optional_drop_ix:
-                self.drop_array[i] = True
-        return X.T[~self.drop_array].T
-
-    def get_feature_names(self, input_features=None):
-        return input_features[~self.drop_array]
-
+    def transform(self, X, y=None):
+        if self.PCATransform:
+            return self.pca_transformed_obj.transform(X)
+        else:
+            return X
 
 class PipelineChecker(BaseEstimator, TransformerMixin):
     '''
