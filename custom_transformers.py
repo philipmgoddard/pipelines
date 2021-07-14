@@ -119,7 +119,7 @@ class ZeroVariance(BaseEstimator, TransformerMixin):
         self.near_zero_var = np.zeros(X.shape[1], dtype=bool)
         n_obs = X.shape[0]
 
-        for i, col in enumerate(X.T):
+        for i, col in enumerate(np.array(X.T)):
             # obtain values, counts of values and sort counts from
             # most to least frequent
             val_counts = np.unique(col, return_counts= True)
@@ -151,9 +151,9 @@ class ZeroVariance(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self, input_features=None):
         if self.near_zero:
-            return input_features[~self.near_zero_var]
+            return np.array(input_features)[~self.near_zero_var]
         else:
-            return input_features[~self.zero_var]
+            return np.array(input_features)[~self.zero_var]
 
 class OptionalSimpleImputer(BaseEstimator, TransformerMixin):
     '''
