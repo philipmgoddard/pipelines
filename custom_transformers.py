@@ -92,7 +92,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self, input_features=None):
         if self.OneHot:
-            one_hot_features = self.OneHot_obj.get_feature_names(input_features)
+            one_hot_features = self.OneHot_obj.get_feature_names_out(input_features)
             return one_hot_features
         else:
             return input_features
